@@ -1,0 +1,199 @@
+#1: for better understanding i will add the name of the productCode
+select productCode,priceEach from orderdetails;
+
+#2:
+select sum(amount) as net_sales from payments;
+
+#3:
+select sum(amount) 
+from payments
+where paymentDate <= '2004-06-01' and paymentDate >= '2004-01-01';
+
+#4:
+select year(paymentDate) as year,sum(amount)
+from payments
+group by year
+order by year desc;
+
+#5:
+select t1.orderNumber,t2.amount
+from orders as t1  join payments as t2
+on t1.customerNumber = t2.customerNumber
+order by amount desc
+limit 5;
+
+#6:
+select t1.customerNumber,sum(t3.quantityOrdered)
+from customers as t1 inner join orders as t2
+on t1.customerNumber = t2.customerNumber
+inner join orderdetails as t3
+on t3.orderNumber = t2.orderNumber
+group by t1.customerNumber
+order by sum(t3.quantityOrdered) desc
+limit 10;
+
+#7:
+create view eden as(
+select t2.employeeNumber ,count(distinct(customerNumber)) as num_customers_per_emp
+from customers as t1 inner join employees as t2
+on t1.salesRepEmployeeNumber = t2.employeeNumber
+group by t2.employeeNumber);
+select avg(num_customers_per_emp)
+from eden;
+select * from eden;
+# יכלתי לעשות בצורה פשוטה יותר רציתי לתרגל views
+#8:
+SELECT eden.employeeNumber, eden.num_customers_per_emp
+from eden
+where eden.num_customers_per_emp >  
+(select avg(num_customers_per_emp) as avg_customers_per_emp
+from eden);	
+#9:
+select t1.orderNumber,avg(quantityOrdered)
+from orders as t1
+inner join orderdetails t2
+on t1.orderNumber = t2.orderNumber
+group by t1.orderNumber;
+#10: לא הבנתי למה חילוק ?
+select distinct(t1.customerName),count(distinct(t4.productLine)) as product_L
+from customers as t1 inner join orders t2
+on t1.customerNumber = t2.customerNumber
+inner join orderdetails t3 
+on t2.orderNumber = t3.orderNumber 
+inner join products t4
+on t3.productCode = t4.productCode
+group by t1.customerName
+having count(distinct(t4.productLine)) = (select count(distinct(productLine)) from products);
+#11: ממש לא בטוח לגבי זה !
+select orderdetails.productCode
+from orders join orderdetails using (orderNumber)
+group by orderdetails.productCode
+having count(distinct orders.customerNumber) >= (select s.num_c*0.5  from(select count(distinct customerNumber) as num_c
+  from customers) as s);
+#12:
+select productLine,sum(buyPrice) as total_purchases
+from products
+group by productLine;
+#13:
+select productName,weekofyear(paymentDate),buyPrice
+from orders as t1 inner join
+orderdetails as t2 on 
+t1.orderNumber = t2.orderNumber
+inner join payments as t3
+on t1.customerNumber = t3.customerNumber
+inner join products as t4
+on t2.productCode = t4.productCode
+where weekofyear(paymentDate) not in(12,13) and buyPrice-(select avg(buyPrice) from products) < 0;
+#14:
+select productName,weekofyear(paymentDate),buyPrice
+from orders as t1 inner join
+orderdetails as t2 on 
+t1.orderNumber = t2.orderNumber
+inner join payments as t3
+on t1.customerNumber = t3.customerNumber
+inner join products as t4
+on t2.productCode = t4.productCode
+where weekofyear(paymentDate) = 12 and buyPrice-(select avg(buyPrice) from products) < 0
+union
+select productName,weekofyear(paymentDate),buyPrice
+from orders as t1 inner join
+orderdetails as t2 on 
+t1.orderNumber = t2.orderNumber
+inner join payments as t3
+on t1.customerNumber = t3.customerNumber
+inner join products as t4
+on t2.productCode = t4.productCode
+where weekofyear(paymentDate) = 13 and buyPrice-(select avg(buyPrice) from products) < 0;
+#15: will just add or !
+select productName,weekofyear(paymentDate),buyPrice
+from orders as t1 inner join
+orderdetails as t2 on 
+t1.orderNumber = t2.orderNumber
+inner join payments as t3
+on t1.customerNumber = t3.customerNumber
+inner join products as t4
+on t2.productCode = t4.productCode
+where weekofyear(paymentDate) in (12,13) and buyPrice-(select avg(buyPrice) from products) < 0
+union
+select productName,weekofyear(paymentDate),buyPrice
+from orders as t1 inner join
+orderdetails as t2 on 
+t1.orderNumber = t2.orderNumber
+inner join payments as t3
+on t1.customerNumber = t3.customerNumber
+inner join products as t4
+on t2.productCode = t4.productCode
+where weekofyear(paymentDate) not in (12,13) and buyPrice-(select avg(buyPrice) from products) > 0;
+#16:
+select t4.productCode,max(paymentDate)
+from orders as t1 inner join
+orderdetails as t2 on 
+t1.orderNumber = t2.orderNumber
+inner join payments as t3
+on t1.customerNumber = t3.customerNumber
+inner join products as t4
+on t2.productCode = t4.productCode
+group by t4.productCode;
+#17: מוזר קצת כי איך הוא בוחר את האורדר נאמבר ?
+select productCode,orderNumber,max(quantityOrdered*priceEach) as total_purchase
+from orderdetails
+group by productCode;
+#18:
+SELECT productCode, orderNumber, total_purchase,row_num
+FROM (
+  SELECT productCode, orderNumber, MAX(quantityOrdered*priceEach) total_purchase,
+         ROW_NUMBER() OVER (ORDER BY MAX(quantityOrdered*priceEach) DESC) as row_num
+  FROM orderdetails
+  GROUP BY productCode, orderNumber
+) subquery
+WHERE row_num % 2 = 1
+LIMIT 5;
+#19:
+select count(MSRP)
+from products
+where MSRP > buyPrice;
+#20:
+select sum(MSRP)
+FROM products;
+#21:
+SELECT
+    o1.customerNumber,
+    o1.orderDate AS currentOrderDate,
+    o2.orderDate AS nextOrderDate
+FROM
+    orders o1
+LEFT JOIN
+    orders o2 ON o2.orderDate > o1.orderDate
+    AND o2.customerNumber = o1.customerNumber
+GROUP BY     
+	o1.customerNumber,
+    o1.orderDate
+ORDER BY
+    o1.customerNumber,
+    o1.orderDate;
+#22:
+select customerNumber,orderDate,buyPrice,TOTAL_SUM
+from
+(select customerNumber,t1.orderDate ,productName,buyPrice,SUM(t3.buyPrice) OVER (PARTITION BY customerNumber ORDER BY t3.buyPrice ASC) AS TOTAL_SUM
+from orders as t1 inner join 
+orderdetails as t2 on 
+t1.orderNumber = t2.orderNumber
+inner join products t3 on 
+t2.productCode = t3.productCode) as new_tab
+where customerNumber = 119
+and TOTAL_SUM <= 300;
+#23:
+select customerNumber,orderDate,buyPrice,TOTAL_SUM
+from
+(select customerNumber,t1.orderDate ,productName,buyPrice,SUM(t3.buyPrice) OVER (PARTITION BY customerNumber ORDER BY t3.buyPrice ASC) AS TOTAL_SUM
+from orders as t1 inner join 
+orderdetails as t2 on 
+t1.orderNumber = t2.orderNumber
+inner join products t3 on 
+t2.productCode = t3.productCode) as new_tab
+WHERE TOTAL_SUM <= 300;
+
+
+
+
+
